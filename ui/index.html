@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cyber-Forensic Evidence & Image Duplicate Analyzer powered by Graph, Tree, and Hash Table Data Structures">
+    <title>AegisForensics // Digital Evidence & Duplicate Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cascadia+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="cyber-theme">
+
+<!-- Sparkle Canvas Overlay -->
+<canvas id="sparkleCanvas"></canvas>
+
+<!-- Background Ambience & Scanline Effects -->
+<div class="cyber-bg-image" aria-hidden="true"></div>
+<div class="cyber-bg-grid" aria-hidden="true"></div>
+<div class="cyber-radar-sweep" aria-hidden="true"></div>
+<div class="cyber-scanlines" aria-hidden="true"></div>
+
+<!-- Top Cyber Notification Toast -->
+<div id="cyberToast" class="cyber-toast" aria-live="polite"></div>
+
+<!-- Main Top Header -->
+<header class="main-header">
+    <div class="header-content">
+        <div class="brand-group">
+            <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 48 48" role="img">
+                    <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="4 2"/>
+                    <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="1.8" opacity="0.6"/>
+                    <circle cx="24" cy="24" r="5" fill="currentColor"/>
+                    <path d="M24 3v6M24 39v6M3 24h6M39 24h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M9 9l4.5 4.5M34.5 34.5L39 39M9 39l4.5-4.5M34.5 13.5L39 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+                </svg>
+                <div class="brand-pulse"></div>
+            </div>
+            <div>
+                <div class="eyebrow"><span class="badge-pulse"></span> DIGITAL FORENSICS LAB • EVIDENCE ARCHITECTURE</div>
+                <h1 class="glitch-text" data-text="AegisForensics">AegisForensics <span class="version-tag">DSA-v2.8</span></h1>
+                <p class="tagline">Cryptographic Hash Analysis • Perceptual Duplicate Detection • Forensic Tree & Graph Structures</p>
+            </div>
+        </div>
+
+        <!-- Cyber Controls & Navigation -->
+        <div class="header-controls">
+            <!-- Navigation Switcher -->
+            <nav class="page-nav" role="tablist">
+                <button type="button" class="nav-tab active" data-page="analyzer" onclick="switchPage('analyzer')" role="tab" aria-selected="true">
+                    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Analyzer & Dashboard</span>
+                </button>
+                <button type="button" class="nav-tab" data-page="vault" id="vaultNavButton" onclick="switchPage('vault')" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24"><path d="M4 4h7l2 3h7v13H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    <span>Evidence Vault (Stored Data)</span>
+                    <span class="nav-badge" id="vaultCountBadge">0</span>
+                </button>
+                <button type="button" class="nav-tab" data-page="dsa" onclick="switchPage('dsa')" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24"><path d="M4 5h16v4H4zM4 15h16v4H4zM7 9v6M17 9v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                    <span>Data Structures Lab</span>
+                </button>
+            </nav>
+
+            <!-- Quick Widget Controls -->
+            <div class="quick-toggles">
+                <button type="button" class="toggle-btn" id="sparkleToggleBtn" onclick="toggleSparkles()" title="Toggle cursor sparkle particle trail">
+                    <span class="toggle-icon">✨</span>
+                    <span class="toggle-label">Sparkles: <strong id="sparkleStatusText">ON</strong></span>
+                </button>
+                <button type="button" class="toggle-btn" id="soundToggleBtn" onclick="toggleAudio()" title="Toggle cyber sound synthesizer">
+                    <span class="toggle-icon" id="soundIcon">🔊</span>
+                    <span class="toggle-label">Audio: <strong id="soundStatusText">ON</strong></span>
+                </button>
+                <div class="system-status">
+                    <span class="status-dot"></span>
+                    <span id="systemStatus">CRYPTO ENGINE READY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- MAIN APP CONTAINER -->
+<main>
+
+    <!-- ========================================== -->
+    <!-- PAGE 1: ANALYZER & LIVE INVESTIGATION VIEW -->
+    <!-- ========================================== -->
+    <div id="page-analyzer" class="page-view active-view">
+
+        <!-- Top Live Counters -->
+        <section class="dashboard" aria-label="Evidence Metrics Dashboard">
+            <div class="card dashboard-card kpi-total">
+                <div class="kpi-icon blue">
+                    <svg viewBox="0 0 24 24"><path d="M4 6.5h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6.5V4h10v2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12.5" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">TOTAL IMAGES UPLOADED</span>
+                    <strong id="totalEvidence" class="counter-number">0</strong>
+                    <span class="kpi-subtext">Acquired evidence items</span>
+                </div>
+                <div class="card-corner-accent"></div>
+            </div>
+
+            <div class="card dashboard-card kpi-original">
+                <div class="kpi-icon green">
+                    <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">ORIGINAL IMAGES</span>
+                    <strong id="originalEvidence" class="counter-number">0</strong>
+                    <span class="kpi-subtext">Unique cryptographic roots</span>
+                </div>
+                <div class="card-corner-accent"></div>
+            </div>
+
+            <div class="card dashboard-card kpi-duplicate">
+                <div class="kpi-icon amber">
+                    <svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 16H4a1 1 0 01-1-1V4a1 1 0 011-1h11a1 1 0 011 1v1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12v3M12 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">DUPLICATE IMAGES</span>
+                    <strong id="duplicateEvidence" class="counter-number">0</strong>
+                    <span class="kpi-subtext"><span id="exactDupCount">0</span> exact • <span id="nearDupCount">0</span> perceptual</span>
+                </div>
+                <div class="card-corner-accent"></div>
+            </div>
+
+            <div class="card dashboard-card kpi-relationships">
+                <div class="kpi-icon violet">
+                    <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">GRAPH RELATIONSHIPS</span>
+                    <strong id="relationships" class="counter-number">0</strong>
+                    <span class="kpi-subtext">Data structure edges connected</span>
+                </div>
+                <div class="card-corner-accent"></div>
+            </div>
+        </section>
+
+        <!-- Dedicated Button to Vault Page & Sample Dataset Quick Loader -->
+        <div class="action-banner">
+            <div class="banner-left">
+                <div class="pulsing-shield">🛡️</div>
+                <div>
+                    <h3>Forensic Case Registry Ready</h3>
+                    <p>Evidence analyzed is automatically indexed into Hash Tables, Graph Vertices, and Tree Nodes.</p>
+                </div>
+            </div>
+            <div class="banner-actions">
+                <button type="button" class="btn-sample" onclick="loadSampleDataset()">
+                    <svg viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Load Sample Forensic Evidence
+                </button>
+                <button type="button" class="btn-highlight-vault" onclick="switchPage('vault')">
+                    <svg viewBox="0 0 24 24"><path d="M4 4h7l2 3h7v13H4z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 10v6M9 13h6" stroke="currentColor" stroke-width="2"/></svg>
+                    <span>Open Evidence Data Vault</span>
+                    <span class="vault-arrow">→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Evidence Acquisition & Upload Panel -->
+        <section class="panel upload-panel">
+            <div class="section-heading">
+                <div class="section-icon blue-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                    <span class="section-kicker">EVIDENCE ACQUISITION WORKFLOW</span>
+                    <h2>Upload Image Evidence</h2>
+                    <p>Drop or browse images. The engine calculates SHA-256, MD5, and 64-bit Perceptual dHash to immediately detect exact duplicates or modified copies.</p>
+                </div>
+                <div class="heading-badge">
+                    <span>MULTIPLE UPLOAD SUPPORTED</span>
+                </div>
+            </div>
+
+            <!-- Drag and Drop Target -->
+            <div id="dropZone" class="drop-zone" tabindex="0">
+                <div class="drop-hologram">
+                    <div class="scanner-laser"></div>
+                    <div class="drop-icon">
+                        <svg viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                </div>
+                <h3>DRAG & DROP IMAGE EVIDENCE HERE</h3>
+                <p>or click to browse from local workstation</p>
+                <div class="file-format-pills">
+                    <span class="format-pill">PNG</span>
+                    <span class="format-pill">JPEG / JPG</span>
+                    <span class="format-pill">WEBP</span>
+                    <span class="format-pill">GIF</span>
+                    <span class="format-pill">TIFF</span>
+                    <span class="format-pill">BMP</span>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" multiple hidden>
+                <button type="button" class="secondary-button browse-button" id="browseButton" onclick="document.getElementById('fileInput').click()">
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Select Images
+                </button>
+                <div id="selectedFile" class="selected-file" hidden></div>
+            </div>
+
+            <!-- Upload Action Button -->
+            <div class="upload-actions">
+                <button type="button" class="primary-button" id="uploadButton" onclick="uploadEvidence()">
+                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Analyze Image Evidence Now</span>
+                </button>
+            </div>
+            <div id="uploadStatus" class="status-area"></div>
+        </section>
+
+        <!-- Latest Analysis Hero Card (Auto-revealed upon upload) -->
+        <section class="panel result-panel" id="resultPanel" hidden>
+            <div class="section-heading compact-heading">
+                <div class="section-icon green-icon">
+                    <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                    <span class="section-kicker">REAL-TIME FORENSIC VERDICT</span>
+                    <h2>Evidence Analysis Result</h2>
+                    <p>Diagnostic verification and comparison against existing repository nodes.</p>
+                </div>
+            </div>
+            <div id="result"></div>
+        </section>
+
+        <!-- DUAL VIEW: Evidence Relationship Graph & Evidence Tree -->
+        <div class="split-visualization-grid">
+            
+            <!-- Graph Relationship Panel -->
+            <section class="panel vis-panel">
+                <div class="section-heading">
+                    <div class="section-icon cyan-icon">
+                        <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 10.8l7-3.6M8.5 13.2l7 3.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <div>
+                        <span class="section-kicker">GRAPH DATA STRUCTURE (ADJACENCY NETWORK)</span>
+                        <h2>Evidence Relationship Graph</h2>
+                        <p>Interactive force-directed graph. Vertices represent images; edges represent duplicate similarity, shared camera, or hash links.</p>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="graph-legend">
+                        <span class="legend-chip cyan"><span class="chip-dot"></span> Original Root</span>
+                        <span class="legend-chip amber"><span class="chip-dot"></span> Duplicate Node</span>
+                        <span class="legend-chip red"><span class="chip-dot"></span> Exact Match Edge</span>
+                        <span class="legend-chip violet"><span class="chip-dot"></span> Perceptual Similarity Edge</span>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button class="secondary-button" onclick="runGraphBFS()">
+                            <svg viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                            Traverse Graph (BFS)
+                        </button>
+                        <button class="secondary-button" onclick="resetGraphPhysics()">
+                            <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                            Stabilize
+                        </button>
+                    </div>
+                </div>
+
+                <div id="graphContainer" class="graph-stage-wrapper">
+                    <canvas id="graphCanvas"></canvas>
+                    <div id="graphOverlayInfo" class="graph-overlay-info">Click and drag nodes to explore relationships. Hover for metadata.</div>
+                </div>
+            </section>
+
+            <!-- Tree Hierarchy Panel -->
+            <section class="panel vis-panel">
+                <div class="section-heading">
+                    <div class="section-icon green-icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 3v5M6 12h12M6 12v6M18 12v6M3 18h6M15 18h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div>
+                        <span class="section-kicker">TREE DATA STRUCTURE (HIERARCHICAL DERIVATION)</span>
+                        <h2>Forensic Evidence Tree</h2>
+                        <p>Hierarchical tree with Investigation Root at Level 0, Original Images as Branch Nodes, and Duplicates as Child Leaves.</p>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="tree-traversal-controls">
+                        <span class="control-label">DSA Traversals:</span>
+                        <button class="traversal-pill" onclick="animateTreeTraversal('bfs')">Level-Order (BFS)</button>
+                        <button class="traversal-pill" onclick="animateTreeTraversal('preorder')">Pre-Order (DFS)</button>
+                        <button class="traversal-pill" onclick="animateTreeTraversal('postorder')">Post-Order</button>
+                    </div>
+                    <button class="secondary-button" onclick="expandAllTreeNodes()">
+                        <svg viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M16 15l-4 4-4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        Expand All
+                    </button>
+                </div>
+
+                <!-- Tree Interactive Container -->
+                <div id="treeOutput" class="tree-container">
+                    <div class="tree-interactive-canvas" id="treeSvgWrapper">
+                        <svg id="treeSvg" class="tree-svg"></svg>
+                    </div>
+                    <div id="treeLog" class="tree-traversal-terminal" hidden>
+                        <div class="term-header">
+                            <span class="term-dot"></span>
+                            <span class="term-title">DATA STRUCTURE TRAVERSAL LOG</span>
+                            <button type="button" class="term-close" onclick="document.getElementById('treeLog').hidden=true">×</button>
+                        </div>
+                        <div id="treeLogContent" class="term-body"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Quick Evidence Repository Table Preview -->
+        <section class="panel">
+            <div class="section-heading">
+                <div class="section-icon violet-icon">
+                    <svg viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
+                <div>
+                    <span class="section-kicker">QUICK REPOSITORY PREVIEW</span>
+                    <h2>Recent Evidence Entries</h2>
+                    <p>Recent images processed in this session. Click any row to inspect complete forensic metadata or go to the full Evidence Vault page.</p>
+                </div>
+                <div class="heading-actions">
+                    <button type="button" class="primary-button highlight-glow" onclick="switchPage('vault')">
+                        <svg viewBox="0 0 24 24"><path d="M4 4h7l2 3h7v13H4z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        <span>View Full Evidence Data Vault Page</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="quickEvidenceList" class="content-surface"></div>
+        </section>
+
+        <!-- Data Structure Architecture Section -->
+        <section class="panel architecture-panel">
+            <div class="section-heading">
+                <div class="section-icon slate-icon">
+                    <svg viewBox="0 0 24 24"><path d="M4 5h16v4H4zM4 15h16v4H4zM7 9v6M17 9v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                    <span class="section-kicker">COMPUTER SCIENCE FOUNDATION</span>
+                    <h2>Data Structure Engineering</h2>
+                    <p>How core data structures power our cyber-forensic investigation system.</p>
+                </div>
+            </div>
+            <div class="architecture-grid">
+                <div class="architecture-card" onclick="switchPage('dsa')">
+                    <div class="arch-top">
+                        <span class="architecture-badge blue">TREE</span>
+                        <span class="complexity-pill">O(h)</span>
+                    </div>
+                    <h3>Hierarchical Derivation Tree</h3>
+                    <p>Organizes original images as primary branches and attaches duplicates/crops as leaf descendants to establish root origin.</p>
+                </div>
+                <div class="architecture-card" onclick="switchPage('dsa')">
+                    <div class="arch-top">
+                        <span class="architecture-badge cyan">GRAPH</span>
+                        <span class="complexity-pill">G(V, E)</span>
+                    </div>
+                    <h3>Adjacency Relationship Graph</h3>
+                    <p>Models complex multi-source connections, similarity edge weights, and runs BFS/DFS to isolate suspicious evidence clusters.</p>
+                </div>
+                <div class="architecture-card" onclick="switchPage('dsa')">
+                    <div class="arch-top">
+                        <span class="architecture-badge violet">HASH TABLE</span>
+                        <span class="complexity-pill">O(1) Avg</span>
+                    </div>
+                    <h3>Cryptographic Hash Table</h3>
+                    <p>Indexes SHA-256 and MD5 hashes in memory buckets using linked-list collision resolution for instant duplicate lookups.</p>
+                </div>
+                <div class="architecture-card" onclick="switchPage('dsa')">
+                    <div class="arch-top">
+                        <span class="architecture-badge amber">PERCEPTUAL MATRIX</span>
+                        <span class="complexity-pill">Hamming Dist</span>
+                    </div>
+                    <h3>Difference Hash (dHash)</h3>
+                    <p>Generates 64-bit gradient fingerprint by sampling 9×8 pixel blocks to detect modified, resized, or re-compressed duplicates.</p>
+                </div>
+                <div class="architecture-card" onclick="switchPage('dsa')">
+                    <div class="arch-top">
+                        <span class="architecture-badge green">QUEUE & STACK</span>
+                        <span class="complexity-pill">FIFO / LIFO</span>
+                    </div>
+                    <h3>Chain of Custody History</h3>
+                    <p>Queue manages background evidence acquisition batches; Stack maintains an undoable forensic investigation audit trail.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- PAGE 2: DEDICATED EVIDENCE VAULT / COMPREHENSIVE DATA STORAGE  -->
+    <!-- ============================================================== -->
+    <div id="page-vault" class="page-view">
+        
+        <!-- Vault Header Banner -->
+        <div class="vault-hero-card">
+            <div class="vault-hero-content">
+                <div class="vault-badge-tag">SECURE EVIDENCE REGISTRY</div>
+                <h2>Forensic Evidence Data Vault</h2>
+                <p>Complete data store for every uploaded image: File Name, File Size, Dimensions, Cryptographic Hashes (SHA-256 & MD5), Perceptual Fingerprints, EXIF Metadata, and Chain of Custody Records.</p>
+                
+                <!-- Quick Storage Stats -->
+                <div class="vault-stats-row">
+                    <div class="vstat-item">
+                        <span class="vstat-label">STORED RECORDS</span>
+                        <strong id="vaultTotalRecords">0</strong>
+                    </div>
+                    <div class="vstat-item">
+                        <span class="vstat-label">TOTAL STORAGE USED</span>
+                        <strong id="vaultStorageSize">0 KB</strong>
+                    </div>
+                    <div class="vstat-item">
+                        <span class="vstat-label">ORIGINALS LOGGED</span>
+                        <strong id="vaultOriginalsCount">0</strong>
+                    </div>
+                    <div class="vstat-item">
+                        <span class="vstat-label">DUPLICATES FLAGGED</span>
+                        <strong id="vaultDuplicatesCount">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vault Actions -->
+            <div class="vault-hero-actions">
+                <button type="button" class="btn-vault-action" onclick="exportEvidenceJSON()">
+                    <svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Export JSON Dossier
+                </button>
+                <button type="button" class="btn-vault-action" onclick="exportEvidenceCSV()">
+                    <svg viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    Export CSV Ledger
+                </button>
+                <button type="button" class="btn-vault-action print-btn" onclick="window.print()">
+                    <svg viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    Print Forensic Report
+                </button>
+                <button type="button" class="btn-vault-action purge-btn" onclick="clearAllEvidence()" style="color: var(--neon-red); border-color: rgba(255, 51, 102, 0.4);" title="Delete all evidence records and stored physical files">
+                    <svg viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Purge All Evidence
+                </button>
+                <button type="button" class="btn-vault-action return-btn" onclick="switchPage('analyzer')">
+                    <svg viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Back to Analyzer
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter, Search, and Sort Toolbar -->
+        <div class="vault-filter-toolbar">
+            <div class="search-box">
+                <svg viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <input type="text" id="vaultSearchInput" placeholder="Search by File Name, Evidence ID, Hash, MIME, Camera..." oninput="filterVaultData()">
+                <button type="button" class="clear-search-btn" id="clearSearchBtn" onclick="clearVaultSearch()" hidden>×</button>
+            </div>
+
+            <div class="filter-pills-group">
+                <button type="button" class="filter-btn active" data-filter="all" onclick="setVaultFilter('all')">All (<span id="filterAllCount">0</span>)</button>
+                <button type="button" class="filter-btn" data-filter="original" onclick="setVaultFilter('original')">Originals (<span id="filterOriginalCount">0</span>)</button>
+                <button type="button" class="filter-btn" data-filter="duplicate" onclick="setVaultFilter('duplicate')">Duplicates (<span id="filterDuplicateCount">0</span>)</button>
+            </div>
+
+            <div class="sort-selector">
+                <label for="vaultSort">Sort By:</label>
+                <select id="vaultSort" onchange="renderVaultTable()">
+                    <option value="date-desc">Uploaded: Newest First</option>
+                    <option value="date-asc">Uploaded: Oldest First</option>
+                    <option value="size-desc">Size: Largest First</option>
+                    <option value="size-asc">Size: Smallest First</option>
+                    <option value="name-asc">File Name: A - Z</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Comprehensive Evidence Data Table -->
+        <div class="panel vault-table-panel">
+            <div class="vault-table-container">
+                <table class="vault-data-table" id="vaultDataTable">
+                    <thead>
+                        <tr>
+                            <th>Evidence ID</th>
+                            <th>Image Preview</th>
+                            <th>File Name & Type</th>
+                            <th>File Size</th>
+                            <th>Resolution</th>
+                            <th>Status & Verdict</th>
+                            <th>Parent / Original ID</th>
+                            <th>Storage Reference</th>
+                            <th>Cryptographic SHA-256</th>
+                            <th>MD5 Hash</th>
+                            <th>Perceptual dHash</th>
+                            <th>Date & Time Logged</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vaultTableBody">
+                        <!-- Populated by script.js -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="vaultEmptyState" class="empty-state">
+                <div class="empty-icon">📂</div>
+                <strong>No Evidence Stored Yet</strong>
+                <p>Upload images in the Analyzer or load the sample forensic dataset to populate this registry.</p>
+                <div class="empty-actions">
+                    <button class="primary-button" onclick="loadSampleDataset(); switchPage('vault');">Load Sample Images</button>
+                    <button class="secondary-button" onclick="switchPage('analyzer')">Go to Upload</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- PAGE 3: DATA STRUCTURES LAB & LIVE MEMORY INSPECTION           -->
+    <!-- ============================================================== -->
+    <div id="page-dsa" class="page-view">
+        <div class="vault-hero-card dsa-hero">
+            <div class="vault-hero-content">
+                <div class="vault-badge-tag blue-tag">COMPUTER SCIENCE MEMORY ARCHITECTURE</div>
+                <h2>Data Structures Lab & Live Inspector</h2>
+                <p>Live memory representation of the data structures executing inside this browser session: Hash Table buckets with collision chains, Adjacency List graph representation, and Tree parent-child node pointers.</p>
+            </div>
+            <div class="vault-hero-actions">
+                <button type="button" class="btn-vault-action return-btn" onclick="switchPage('analyzer')">
+                    ← Back to Analyzer
+                </button>
+            </div>
+        </div>
+
+        <!-- 3-Column DSA Deep Dive Grid -->
+        <div class="dsa-columns-grid">
+            
+            <!-- 1. HASH TABLE INSPECTOR -->
+            <div class="panel dsa-panel">
+                <div class="section-heading compact-heading">
+                    <div class="section-icon violet-icon">
+                        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </div>
+                    <div>
+                        <span class="section-kicker">O(1) LOOKUP ENGINE</span>
+                        <h3>Hash Table Memory (Buckets)</h3>
+                        <p>17 Hash Buckets using Separate Chaining linked lists for SHA-256 keys.</p>
+                    </div>
+                </div>
+                <div id="dsaHashTableLive" class="dsa-live-container">
+                    <!-- Populated by script.js -->
+                </div>
+            </div>
+
+            <!-- 2. GRAPH ADJACENCY LIST INSPECTOR -->
+            <div class="panel dsa-panel">
+                <div class="section-heading compact-heading">
+                    <div class="section-icon cyan-icon">
+                        <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 10.8l7-3.6M8.5 13.2l7 3.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <div>
+                        <span class="section-kicker">ADJACENCY LIST</span>
+                        <h3>Graph Structure: G(V, E)</h3>
+                        <p>Vertex map with edge weights and similarity classifications.</p>
+                    </div>
+                </div>
+                <div id="dsaGraphAdjListLive" class="dsa-live-container">
+                    <!-- Populated by script.js -->
+                </div>
+            </div>
+
+            <!-- 3. TREE NODE HIERARCHY INSPECTOR -->
+            <div class="panel dsa-panel">
+                <div class="section-heading compact-heading">
+                    <div class="section-icon green-icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 3v5M6 12h12M6 12v6M18 12v6M3 18h6M15 18h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </div>
+                    <div>
+                        <span class="section-kicker">HIERARCHY TREE</span>
+                        <h3>Tree Node Pointers</h3>
+                        <p>Investigation Root, Parent Nodes, Children Arrays, and Depth levels.</p>
+                    </div>
+                </div>
+                <div id="dsaTreeLive" class="dsa-live-container">
+                    <!-- Populated by script.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-content">
+        <div class="footer-brand">
+            <strong>AegisForensics Digital Evidence & Duplicate Analyzer</strong>
+            <p>Engineered with Data Structures: Trees, Graphs, Hash Tables, and Perceptual Difference Hashing</p>
+        </div>
+        <div class="footer-meta">
+            <span>Cryptographic Standards: SHA-256 • MD5 • dHash 64-bit</span>
+            <span>Chain of Custody Verified • Forensic Integrity Guaranteed</span>
+        </div>
+    </div>
+</footer>
+
+<!-- EVIDENCE INSPECTOR MODAL -->
+<div id="evidenceModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" onclick="closeEvidenceModal()"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+            <div>
+                <span class="section-kicker">FORENSIC DOSSIER INSPECTOR</span>
+                <h2 id="modalTitle">Evidence Details</h2>
+            </div>
+            <button class="icon-button" type="button" onclick="closeEvidenceModal()" aria-label="Close Modal">×</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="script.js"></script>
+</body>
+</html>
