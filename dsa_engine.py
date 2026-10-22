@@ -1,8 +1,8 @@
 
 """
 Forensic DSA Pipeline Engine
-Maintains in-memory Data Structures (HashTable, EvidenceTree, EvidenceGraph)
-and synchronizes with SQLite persistent storage and deduplicated file storage.
+Maintains HashTable, EvidenceTree, and EvidenceGraph.
+Synchronizes evidence records with SQLite and image storage.
 """
 
 import os
@@ -23,46 +23,50 @@ class DSAEngine:
         self.graph = EvidenceGraph()
         self.reload_from_db()
 
+    def get_all_evidence(self):
+        """Return all evidence records from the database."""
+        db_manager.init_db()
+        return db_manager.get_all_evidence()
+
     def reload_from_db(self):
         """Rebuild in-memory data structures from SQLite."""
         db_manager.init_db()
+
         self.hash_table = HashTable(size=17)
         self.tree = EvidenceTree()
         self.graph = EvidenceGraph()
 
-        records = db_manager.get_all_evidence()
+        records = self.get_all_evidence()
 
-        for r in records:
-            ev_id = r["id"]
-            sha = r["sha256"]
-            status = r["status"]
-            parent_id = r["matched_parent_id"]
+        for record in records:
+            ev_id = record["id"]
+            sha = record["sha256"]
+            status = record["status"]
+            parent_id = record.get("matched_parent_id")
 
             if not self.hash_table.search(sha):
-                self.hash_table.insert(sha, r)
+                self.hash_table.insert(sha, record)
 
             if status == "ORIGINAL" or not parent_id:
-                self.tree.add_evidence(ev_id, r, parent_id="ROOT")
+                self.tree.add_evidence(ev_id, record, parent_id="ROOT")
             else:
-                self.tree.add_evidence(ev_id, r, parent_id=parent_id)
+                self.tree.add_evidence(ev_id, record, parent_id=parent_id)
 
             self.graph.add_vertex(ev_id)
 
             if status == "DUPLICATE" and parent_id:
+                similarity = record.get("similarity_score", 90)
                 weight = (
-                    1.0 if r.get("match_type") == "EXACT_HASH"
-                    else r.get("similarity_score", 90) / 100.0
+                    1.0
+                    if record.get("match_type") == "EXACT_HASH"
+                    else float(similarity) / 100.0
                 )
                 self.graph.add_edge(
                     parent_id,
                     ev_id,
                     weight=weight,
-                    relation_type=r.get("match_type", "DUPLICATE")
+                    relation_type=record.get("match_type", "DUPLICATE")
                 )
-
-    def get_all_evidence(self):
-        """Return all evidence records from the database."""
-        return db_manager.get_all_evidence()
 
     def process_and_store_image(
         self,
@@ -70,19 +74,20 @@ class DSAEngine:
         file_bytes: bytes,
         mime_type: str = "image/jpeg"
     ) -> Dict[str, Any]:
-        """Analyze an image, detect duplicates, store it, and index its evidence."""
+        """Analyze an image, detect duplicates, store it, and index evidence."""
+
+        if not file_bytes:
+            raise ValueError("The uploaded file is empty.")
 
         db_manager.init_db()
-
-        # Ensure the image storage directory exists.
         os.makedirs(db_manager.STORAGE_DIR, exist_ok=True)
 
         sha256, md5 = hash_utils.compute_hashes(file_bytes)
         dhash_hex, dhash_bin, meta = hash_utils.compute_dhash(file_bytes)
 
         evidence_id = db_manager.get_next_evidence_id()
-        file_size = len(file_bytes)
         timestamp = datetime.now().isoformat()
+        file_size = len(file_bytes)
 
         exact_match = db_manager.find_by_sha256(sha256)
 
@@ -92,68 +97,78 @@ class DSAEngine:
         matched_parent_id = None
         storage_path = ""
         is_physical_copy = 1
+        should_write_file = True
 
         if exact_match:
+            # Exact duplicate: reuse the original file path.
             status = "DUPLICATE"
             match_type = "EXACT_HASH"
             matched_parent_id = exact_match["id"]
             storage_path = exact_match["storage_path"]
             is_physical_copy = 0
+            should_write_file = False
 
         else:
-            all_records = db_manager.get_all_evidence()
-            lowest_dist = 64
-            closest_rec = None
+            records = self.get_all_evidence()
+            closest_record = None
+            lowest_distance = 65
 
-            for rec in all_records:
-                dist = hash_utils.hamming_distance(
-                    dhash_bin, rec["dhash_bin"]
+            for record in records:
+                existing_hash = record.get("dhash_bin")
+                if not existing_hash:
+                    continue
+
+                distance = hash_utils.hamming_distance(
+                    dhash_bin, existing_hash
                 )
-                if dist < lowest_dist:
-                    lowest_dist = dist
-                    closest_rec = rec
 
-            if lowest_dist <= 6 and closest_rec:
+                if distance < lowest_distance:
+                    lowest_distance = distance
+                    closest_record = record
+
+            if closest_record and lowest_distance <= 6:
                 status = "DUPLICATE"
                 match_type = "PERCEPTUAL_DHASH"
                 similarity_score = hash_utils.calculate_similarity(
-                    lowest_dist
+                    lowest_distance
                 )
-                matched_parent_id = closest_rec["id"]
+                matched_parent_id = closest_record["id"]
+
+                # Reuse the existing file only when the similarity is high
+                # and the referenced file is actually available.
+                existing_path = closest_record.get("storage_path", "")
 
                 if (
                     similarity_score >= 96
-                    and os.path.exists(closest_rec["storage_path"])
+                    and existing_path
+                    and os.path.exists(existing_path)
                 ):
-                    storage_path = closest_rec["storage_path"]
+                    storage_path = existing_path
                     is_physical_copy = 0
-                else:
-                    ext = os.path.splitext(file_name)[1] or ".jpg"
-                    unique_name = f"{evidence_id}_{sha256[:10]}{ext}"
-                    storage_path = os.path.join(
-                        db_manager.STORAGE_DIR, unique_name
-                    )
+                    should_write_file = False
 
-                    with open(storage_path, "wb") as f:
-                        f.write(file_bytes)
+            if should_write_file:
+                extension = os.path.splitext(file_name or "")[1].lower()
 
-            else:
-                ext = os.path.splitext(file_name)[1] or ".jpg"
-                unique_name = f"{evidence_id}_{sha256[:10]}{ext}"
+                # Avoid using arbitrary filenames as storage paths.
+                if not extension or len(extension) > 10:
+                    extension = ".jpg"
+
+                unique_name = f"{evidence_id}_{sha256[:12]}{extension}"
                 storage_path = os.path.join(
                     db_manager.STORAGE_DIR, unique_name
                 )
 
-                with open(storage_path, "wb") as f:
-                    f.write(file_bytes)
+                with open(storage_path, "wb") as image_file:
+                    image_file.write(file_bytes)
 
         record = {
             "id": evidence_id,
-            "file_name": file_name,
+            "file_name": os.path.basename(file_name or "upload.jpg"),
             "file_size": file_size,
-            "mime_type": mime_type,
-            "dimensions": meta["dimensions"],
-            "aspect_ratio": meta["aspect_ratio"],
+            "mime_type": mime_type or "application/octet-stream",
+            "dimensions": meta.get("dimensions"),
+            "aspect_ratio": meta.get("aspect_ratio"),
             "sha256": sha256,
             "md5": md5,
             "dhash_hex": dhash_hex,
@@ -165,18 +180,20 @@ class DSAEngine:
             "storage_path": storage_path,
             "is_physical_copy": is_physical_copy,
             "timestamp": timestamp,
-            "device": meta["device"],
+            "device": meta.get("device"),
             "custody_status": "Verified & Logged"
         }
 
-        # Write a new physical copy only when required.
-        if is_physical_copy:
-            # The file may already have been written above.
-            if not os.path.exists(storage_path):
-                with open(storage_path, "wb") as f:
-                    f.write(file_bytes)
-
-        db_manager.insert_evidence(record)
+        try:
+            db_manager.insert_evidence(record)
+        except Exception:
+            # Remove a newly written image if its database insert fails.
+            if should_write_file and storage_path and os.path.exists(storage_path):
+                try:
+                    os.remove(storage_path)
+                except OSError:
+                    pass
+            raise
 
         if not self.hash_table.search(sha256):
             self.hash_table.insert(sha256, record)
@@ -190,7 +207,8 @@ class DSAEngine:
 
         if status == "DUPLICATE" and matched_parent_id:
             weight = (
-                1.0 if match_type == "EXACT_HASH"
+                1.0
+                if match_type == "EXACT_HASH"
                 else similarity_score / 100.0
             )
             self.graph.add_edge(
@@ -203,23 +221,31 @@ class DSAEngine:
         return record
 
     def delete_evidence(self, evidence_id: str) -> bool:
-        """Delete evidence from the database and refresh data structures."""
+        """Delete evidence and rebuild in-memory structures."""
         success, file_to_delete = db_manager.delete_evidence(evidence_id)
 
         if not success:
             return False
 
+        # Delete the image only if no remaining record references it.
         if file_to_delete and os.path.exists(file_to_delete):
-            try:
-                os.remove(file_to_delete)
-            except OSError:
-                pass
+            remaining_records = self.get_all_evidence()
+            still_referenced = any(
+                r.get("storage_path") == file_to_delete
+                for r in remaining_records
+            )
+
+            if not still_referenced:
+                try:
+                    os.remove(file_to_delete)
+                except OSError:
+                    pass
 
         self.reload_from_db()
         return True
 
     def clear_all(self) -> bool:
-        """Clear evidence records and refresh in-memory structures."""
+        """Clear evidence records and rebuild in-memory structures."""
         db_manager.clear_all_evidence()
         self.reload_from_db()
         return True
@@ -229,28 +255,40 @@ class DSAEngine:
         records = self.get_all_evidence()
 
         total = len(records)
-        originals = sum(1 for r in records if r["status"] == "ORIGINAL")
-        duplicates = sum(1 for r in records if r["status"] == "DUPLICATE")
+        originals = sum(
+            1 for r in records if r.get("status") == "ORIGINAL"
+        )
+        duplicates = sum(
+            1 for r in records if r.get("status") == "DUPLICATE"
+        )
         exact_dups = sum(
             1 for r in records if r.get("match_type") == "EXACT_HASH"
         )
         near_dups = sum(
-            1 for r in records if r.get("match_type") == "PERCEPTUAL_DHASH"
+            1 for r in records
+            if r.get("match_type") == "PERCEPTUAL_DHASH"
         )
         physical_files_count = sum(
             1 for r in records if r.get("is_physical_copy") == 1
         )
 
         edges = []
-        for u, neighbor_list in self.graph.adj_list.items():
-            for v, weight, rel in neighbor_list:
-                if str(u) < str(v):
-                    edges.append({
-                        "source": u,
-                        "target": v,
-                        "weight": weight,
-                        "relation_type": rel
-                    })
+        seen_edges = set()
+
+        for source, neighbors in self.graph.adj_list.items():
+            for target, weight, relation in neighbors:
+                edge_key = frozenset((str(source), str(target)))
+
+                if edge_key in seen_edges:
+                    continue
+
+                seen_edges.add(edge_key)
+                edges.append({
+                    "source": source,
+                    "target": target,
+                    "weight": weight,
+                    "relation_type": relation
+                })
 
         return {
             "evidence_list": records,
