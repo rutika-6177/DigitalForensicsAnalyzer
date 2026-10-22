@@ -9,7 +9,6 @@ PROJECT_ROOT = CURRENT_DIR
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-import db_manager
 from dsa_engine import DSAEngine
 from seed_samples import generate_sample_image
 
@@ -23,7 +22,7 @@ else:
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder=UI_DIR)
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 dsa_engine = DSAEngine()
 
@@ -56,43 +55,74 @@ def health():
     }), 200
 
 
+# Return the response format expected by the frontend.
 @app.route("/api/evidence", methods=["GET"])
 def get_evidence():
     try:
-        db_manager.init_db()
-        records = db_manager.get_all_evidence()
-        return jsonify(records), 200
+        return jsonify(dsa_engine.get_dashboard_summary()), 200
     except Exception:
         app.logger.exception("Failed to retrieve evidence")
-        return jsonify({"error": "Failed to retrieve evidence"}), 500
+        return jsonify({
+            "error": "Failed to retrieve evidence"
+        }), 500
 
 
+# Accept both "files" and "file" as upload field names.
 @app.route("/api/upload", methods=["POST"])
 def upload_evidence():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+    uploaded_files = request.files.getlist("files")
 
-    file = request.files["file"]
+    if not uploaded_files:
+        uploaded_files = request.files.getlist("file")
 
-    if not file.filename:
-        return jsonify({"error": "No file selected"}), 400
+    uploaded_files = [
+        f for f in uploaded_files
+        if f and f.filename
+    ]
+
+    if not uploaded_files:
+        return jsonify({
+            "error": "No files received. Please select an image."
+        }), 400
+
+    processed = []
+    errors = []
 
     try:
-        file_bytes = file.read()
+        os.makedirs(STORAGE_DIR, exist_ok=True)
 
-        if not file_bytes:
-            return jsonify({"error": "The uploaded file is empty"}), 400
+        for file in uploaded_files:
+            file_bytes = file.read()
 
-        result = dsa_engine.process_and_store_image(
-            file_name=file.filename,
-            file_bytes=file_bytes,
-            mime_type=file.mimetype or "application/octet-stream"
-        )
+            if not file_bytes:
+                errors.append(f"{file.filename}: empty file")
+                continue
 
-        return jsonify(result), 201
+            try:
+                record = dsa_engine.process_and_store_image(
+                    file_name=file.filename,
+                    file_bytes=file_bytes,
+                    mime_type=(
+                        file.mimetype or "application/octet-stream"
+                    )
+                )
+                processed.append(record)
 
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+            except ValueError as e:
+                errors.append(f"{file.filename}: {str(e)}")
+
+        if not processed:
+            return jsonify({
+                "error": "No images were processed successfully.",
+                "details": errors
+            }), 400
+
+        # The frontend expects both "summary" and "processed".
+        return jsonify({
+            "summary": dsa_engine.get_dashboard_summary(),
+            "processed": processed,
+            "errors": errors
+        }), 201
 
     except Exception:
         app.logger.exception("Failed to upload evidence")
@@ -104,37 +134,70 @@ def upload_evidence():
 @app.route("/api/evidence/<evidence_id>", methods=["DELETE"])
 def delete_evidence(evidence_id):
     try:
-        result = dsa_engine.delete_evidence(evidence_id)
-        return jsonify(result), 200
+        success = dsa_engine.delete_evidence(evidence_id)
+
+        if not success:
+            return jsonify({
+                "error": "Evidence ID not found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "summary": dsa_engine.get_dashboard_summary()
+        }), 200
+
     except Exception:
         app.logger.exception("Failed to delete evidence")
-        return jsonify({"error": "Failed to delete evidence"}), 500
+        return jsonify({
+            "error": "Failed to delete evidence"
+        }), 500
 
 
 @app.route("/api/clear", methods=["POST"])
 def clear_evidence():
     try:
-        result = dsa_engine.clear_all()
-        return jsonify(result), 200
+        dsa_engine.clear_all()
+
+        return jsonify({
+            "success": True,
+            "summary": dsa_engine.get_dashboard_summary()
+        }), 200
+
     except Exception:
         app.logger.exception("Failed to clear evidence")
-        return jsonify({"error": "Failed to clear evidence"}), 500
+        return jsonify({
+            "error": "Failed to clear evidence"
+        }), 500
 
 
 @app.route("/api/sample", methods=["POST"])
 def generate_sample():
     try:
-        result = generate_sample_image()
-        return jsonify(result), 201
+        # The sample generator returns image bytes, not JSON.
+        image_bytes = generate_sample_image("SAMPLE EVIDENCE")
+
+        record = dsa_engine.process_and_store_image(
+            file_name="sample_evidence.jpg",
+            file_bytes=image_bytes,
+            mime_type="image/jpeg"
+        )
+
+        return jsonify({
+            "summary": dsa_engine.get_dashboard_summary(),
+            "processed": [record]
+        }), 201
+
     except Exception:
         app.logger.exception("Failed to generate sample")
-        return jsonify({"error": "Failed to generate sample image"}), 500
+        return jsonify({
+            "error": "Failed to generate sample image"
+        }), 500
 
 
 @app.errorhandler(413)
 def file_too_large(error):
     return jsonify({
-        "error": "File too large. Maximum upload size is 10 MB."
+        "error": "Upload is too large. Maximum request size is 10 MB."
     }), 413
 
 
