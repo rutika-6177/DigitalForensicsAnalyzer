@@ -3,7 +3,8 @@ import os
 import sys
 from flask import Flask, request, jsonify, send_from_directory
 
-# Resolve project paths
+# -------------------- PROJECT PATHS --------------------
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = CURRENT_DIR
 
@@ -14,7 +15,13 @@ from dsa_engine import DSAEngine
 from seed_samples import generate_sample_image
 
 UI_DIR = os.path.join(PROJECT_ROOT, "ui")
-STORAGE_DIR = os.path.join(PROJECT_ROOT, "storage", "images")
+
+# Vercel's deployed project directory is read-only.
+# Use /tmp for temporary files on Vercel.
+if os.environ.get("VERCEL"):
+    STORAGE_DIR = "/tmp/storage/images"
+else:
+    STORAGE_DIR = os.path.join(PROJECT_ROOT, "storage", "images")
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
@@ -62,6 +69,7 @@ def get_evidence():
         evidence = dsa_engine.get_all_evidence()
         return jsonify(evidence)
     except Exception as e:
+        app.logger.exception("Failed to retrieve evidence")
         return jsonify({"error": str(e)}), 500
 
 
@@ -82,6 +90,7 @@ def upload_evidence():
         return jsonify(result), 201
 
     except Exception as e:
+        app.logger.exception("Failed to upload evidence")
         return jsonify({"error": str(e)}), 500
 
 
@@ -91,6 +100,7 @@ def delete_evidence(evidence_id):
         result = dsa_engine.delete_evidence(evidence_id)
         return jsonify(result)
     except Exception as e:
+        app.logger.exception("Failed to delete evidence")
         return jsonify({"error": str(e)}), 500
 
 
@@ -100,6 +110,7 @@ def clear_evidence():
         result = dsa_engine.clear_all()
         return jsonify(result)
     except Exception as e:
+        app.logger.exception("Failed to clear evidence")
         return jsonify({"error": str(e)}), 500
 
 
@@ -109,10 +120,15 @@ def generate_sample():
         result = generate_sample_image()
         return jsonify(result), 201
     except Exception as e:
+        app.logger.exception("Failed to generate sample")
         return jsonify({"error": str(e)}), 500
 
 
 # -------------------- LOCAL DEVELOPMENT --------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+        debug=False
+    )
