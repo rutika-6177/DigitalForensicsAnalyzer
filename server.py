@@ -83,8 +83,6 @@ def upload_evidence():
         if not file_bytes:
             return jsonify({"error": "The uploaded file is empty"}), 400
 
-        os.makedirs(STORAGE_DIR, exist_ok=True)
-
         result = dsa_engine.process_and_store_image(
             file_name=file.filename,
             file_bytes=file_bytes,
