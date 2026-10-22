@@ -3,8 +3,6 @@ import os
 import sys
 from flask import Flask, request, jsonify, send_from_directory
 
-# -------------------- PROJECT PATHS --------------------
-
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = CURRENT_DIR
 
@@ -16,8 +14,6 @@ from seed_samples import generate_sample_image
 
 UI_DIR = os.path.join(PROJECT_ROOT, "ui")
 
-# Vercel's deployed project directory is read-only.
-# Use /tmp for temporary files on Vercel.
 if os.environ.get("VERCEL"):
     STORAGE_DIR = "/tmp/storage/images"
 else:
@@ -29,8 +25,6 @@ app = Flask(__name__, static_folder=UI_DIR)
 dsa_engine = DSAEngine()
 
 
-# -------------------- FRONTEND --------------------
-
 @app.route("/")
 def index():
     return send_from_directory(UI_DIR, "index.html")
@@ -38,24 +32,17 @@ def index():
 
 @app.route("/<path:path>")
 def serve_ui(path):
-    file_path = os.path.join(UI_DIR, path)
-
-    if os.path.isfile(file_path):
+    if os.path.isfile(os.path.join(UI_DIR, path)):
         return send_from_directory(UI_DIR, path)
-
     return jsonify({"error": "Not found"}), 404
 
-
-# -------------------- IMAGE STORAGE --------------------
 
 @app.route("/storage/images/<path:filename>")
 def serve_image(filename):
     return send_from_directory(STORAGE_DIR, filename)
 
 
-# -------------------- API --------------------
-
-@app.route("/api/health", methods=["GET"])
+@app.route("/api/health")
 def health():
     return jsonify({
         "status": "ok",
@@ -66,8 +53,7 @@ def health():
 @app.route("/api/evidence", methods=["GET"])
 def get_evidence():
     try:
-        evidence = dsa_engine.get_all_evidence()
-        return jsonify(evidence)
+        return jsonify(dsa_engine.get_all_evidence())
     except Exception as e:
         app.logger.exception("Failed to retrieve evidence")
         return jsonify({"error": str(e)}), 500
@@ -80,13 +66,11 @@ def upload_evidence():
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
-
         if not file.filename:
             return jsonify({"error": "No file selected"}), 400
 
         os.makedirs(STORAGE_DIR, exist_ok=True)
         result = dsa_engine.add_evidence(file)
-
         return jsonify(result), 201
 
     except Exception as e:
@@ -97,8 +81,7 @@ def upload_evidence():
 @app.route("/api/evidence/<evidence_id>", methods=["DELETE"])
 def delete_evidence(evidence_id):
     try:
-        result = dsa_engine.delete_evidence(evidence_id)
-        return jsonify(result)
+        return jsonify(dsa_engine.delete_evidence(evidence_id))
     except Exception as e:
         app.logger.exception("Failed to delete evidence")
         return jsonify({"error": str(e)}), 500
@@ -107,8 +90,7 @@ def delete_evidence(evidence_id):
 @app.route("/api/clear", methods=["POST"])
 def clear_evidence():
     try:
-        result = dsa_engine.clear_all()
-        return jsonify(result)
+        return jsonify(dsa_engine.clear_all())
     except Exception as e:
         app.logger.exception("Failed to clear evidence")
         return jsonify({"error": str(e)}), 500
@@ -117,14 +99,11 @@ def clear_evidence():
 @app.route("/api/sample", methods=["POST"])
 def generate_sample():
     try:
-        result = generate_sample_image()
-        return jsonify(result), 201
+        return jsonify(generate_sample_image()), 201
     except Exception as e:
         app.logger.exception("Failed to generate sample")
         return jsonify({"error": str(e)}), 500
 
-
-# -------------------- LOCAL DEVELOPMENT --------------------
 
 if __name__ == "__main__":
     app.run(
